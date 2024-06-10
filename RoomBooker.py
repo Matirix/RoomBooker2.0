@@ -6,9 +6,8 @@ from urllib.parse import quote
 from enum import Enum
 import requests
 from dotenv import load_dotenv
+
 load_dotenv()
-
-
 
 
 def time_to_seconds(time_str) -> int or None:
@@ -43,6 +42,9 @@ class AreaNum(Enum):
 
 
 class RoomBooking:
+    """
+    RoomBooking Class used to initiate requests like logging in, booking and deleting.
+    """
     LOGIN_URL = "https://studyrooms.lib.bcit.ca/admin.php"
     BOOKING_URL = "https://studyrooms.lib.bcit.ca/edit_entry_handler.php"
     DELETE_URL = "https://studyrooms.lib.bcit.ca/del_entry.php"
@@ -64,9 +66,10 @@ class RoomBooking:
     def view_week(self, year: int = datetime.year,
                   month: int = datetime.month,
                   day: int = datetime.day,
-                  area: int = AreaNum.DTC_FLOOR_TWO.value,
+                  area: AreaNum = AreaNum.DTC_FLOOR_TWO,
                   room: int = 99):
-        return f"https://studyrooms.lib.bcit.ca/week.php?year={year}&month={month}&day={day}&area={area}&room={room}"
+        return f"https://studyrooms.lib.bcit.ca/week.php?year={year}&month={month}&day={day}&area={area.value}&room={room}"
+
     # For Future Implementation
     RESULTS = {
         "MaxError": "The maximum duration of a booking is 2 hours",
@@ -77,11 +80,12 @@ class RoomBooking:
         "Content-Type": "application/x-www-form-urlencoded",
     }
 
-    def __init__(self, email, password):
+    def __init__(self, email: str, password: str):
         self._email = email
         self._password = password
         self._logged_in = False
         self._cookies = get_cookies()
+        self._rooms_booked = []
 
     def log_in(self) -> None:
         """
@@ -113,9 +117,18 @@ class RoomBooking:
         except Exception as error:
             print(f'An unexpected error occurred: {error}')
 
-    def get_room_id_by_name(self, room_name="Studying"):
+    def get_booking_id_by_name(self, room_name="Studying", area: AreaNum = AreaNum.DTC_FLOOR_TWO, room: int = 104):
+        """
+        Gets the room id by the name of the room you set. TODO will probably be changed for deleting,
+
+        :param room: The id for the BCIT area space
+        :param area:
+        :param room_name:
+        :return:
+        """
         try:
-            response = requests.get(url=self.view_week(), headers=self.CONTENT_HEADER, cookies=self._cookies)
+            response = requests.get(url=self.view_week(area=area, room=room), headers=self.CONTENT_HEADER,
+                                    cookies=self._cookies)
             if response.status_code == 200:
                 content = response.text
                 result = soup_helper(content).find(text=room_name)
@@ -196,10 +209,7 @@ if __name__ == '__main__':
     email = os.getenv('EMAIL')
     password = os.getenv('PASSWORD')
     while True:
-        # username = input("Enter Email\n").strip()
-        # password = input("Enter Password\n").strip()
         room_booking = RoomBooking(email, password)
-        # room_booking = RoomBooking(username, password)
         try:
             room_booking.log_in()
             if room_booking.get_login():
@@ -229,10 +239,10 @@ if __name__ == '__main__':
                 print(f"Invalid Input! Error: {e}")
         elif user_input == "2":
             room_name = input("Enter Room Name (Case Sensitive):\n")
-            ref = room_booking.get_room_id_by_name(room_name)
+            ref = room_booking.get_booking_id_by_name(room_name)
         elif user_input == "3":
             room_name = input("Enter Room Name (Case Sensitive):\n")
-            ref = room_booking.get_room_id_by_name(room_name)
+            ref = room_booking.get_booking_id_by_name(room_name)
             room_booking.delete_booking(ref)
         elif user_input == "q":
             exit(0)
